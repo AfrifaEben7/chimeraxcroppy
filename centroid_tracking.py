@@ -11,6 +11,7 @@ __version__ = "0.2.0"
 __license__ = "MIT"
 
 import os
+import argparse
 import pprint
 import itertools
 import xml.etree.ElementTree as et
@@ -71,10 +72,10 @@ def remove_close_time(data_frame, closest=10):
     return frames
 
 
-def track_centroids(data_frame, gap=2, min_len=10):
+def track_centroids(data_frame, search_range=50, gap=2, min_len=10):
     """Uses trackpy to link centroids into tracks"""
     tp.quiet()
-    tracks = tp.link_df(data_frame, search_range=50, pos_columns=[
+    tracks = tp.link_df(data_frame, search_range=search_range, pos_columns=[
         'x', 'y', 'z'], t_column='frame', memory=gap)
     tracks = tp.filter_stubs(tracks, min_len)
     label1 = tracks['particle'].unique()
@@ -113,6 +114,26 @@ def fill_gaps(tracks):
     return out
 
 
+def measure_distance(tracks):
+    """From the centroids calculate the Euclidean distance between each timepoint which is then averaged for each track."""
+    def _dist(pos0, pos1):
+        dist = (((pos0-pos1)**2).sum()**0.5)
+        return dist
+
+    all_tracks = tracks.track.unique().astype(int)
+    track_dist = np.zeros_like(all_tracks, dtype=float)
+    track_std = track_dist.copy()
+
+    for xii in all_tracks:
+        grouped = tracks.groupby(['track']).get_group(xii)
+        positions = grouped[['x', 'y', 'z']].values.astype(float)
+        dist = np.array([_dist(positions[tii], positions[tii+1])
+                        for tii in range(0, len(positions)-1)])
+        track_dist[xii-1] = dist.mean()
+        track_std[xii-1] = dist.std()
+    return track_dist, track_std
+
+
 def pd_2_xml(tracks, save_file='tracked.cmm'):
     """Convert the tracked pandas dataframe into an xml chimerax opens"""
     xml = ['<marker_sets>']
@@ -134,12 +155,11 @@ def pd_2_xml(tracks, save_file='tracked.cmm'):
         xml.append('</marker_set>')
     xml.append('</marker_sets>')
     xml = '\n'.join(xml)
-    file = open(save_file, 'w')
-    file.write(xml)
-    file.close()
+    with open(save_file, 'w') as file:
+        file.write(xml)
 
 
-def main(xml_file=None):
+def main(xml_file, search_range):
     """Main has 5 steps:
     1. Convert the input xml to dataframe
     2. Find any duplicate centroids
@@ -152,14 +172,46 @@ def main(xml_file=None):
         if not xml_file:
             return
 
-    file_path = os.path.split(xml_file)[0]
-    save_file = os.path.join(file_path, "tracked_centroids.cmm")
+    file_path, stub = os.path.split(xml_file)
+    stub = "tracked_"+stub
+    save_file = os.path.join(file_path, stub)
+    pprint.pprint('Tracked centroids saved as: ' + save_file)
     data_frame = xml_2_pd(xml_file)
     data_frame = remove_close_time(data_frame)
-    tracks = track_centroids(data_frame)
+    tracks = track_centroids(data_frame, search_range)
     tracks = fill_gaps(tracks)
     pd_2_xml(tracks, save_file)
 
 
 if __name__ == '__main__':
-    main()
+    # This is executed when run from the command line.
+    parser = argparse.ArgumentParser()
+    # Optional argument flag for the source directory
+    parser.add_argument(
+        "-s",
+        "--source",
+        action="store",
+        help="The directory path containing data",
+        default=None)
+
+    # Optional argument flag for the source directory
+    parser.add_argument(
+        "-r",
+        "--range",
+        action="store",
+        help="Search range for tracking",
+        type=int,
+        default=50)
+
+    # Specify output of "--version"
+    parser.add_argument(
+        "-v",
+        "--version",
+        action="version",
+        version="%(prog)s (version {version})".format(version=__version__))
+    args = parser.parse_args()
+
+    main(
+        xml_file=args.source,
+        search_range=args.range
+    )
