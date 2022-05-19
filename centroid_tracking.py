@@ -7,20 +7,19 @@ Parameters
 
 """
 __author__ = "Brandon Scott"
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __license__ = "MIT"
 
-import os
-import argparse
-import pprint
-import itertools
-import xml.etree.ElementTree as et
+from os import path
+from argparse import ArgumentParser
+from itertools import combinations
+from xml.etree.ElementTree import parse
 
-import easygui
 import numpy as np
 import pandas as pd
 import trackpy as tp
-from scipy.spatial import distance
+from easygui import fileopenbox
+from scipy.spatial.distance import pdist
 
 
 def choose_xml():
@@ -28,19 +27,30 @@ def choose_xml():
     source = None
     count = 0
     while not source and count < 3:
-        source = easygui.fileopenbox(
+        source = fileopenbox(
             msg='Choose the centroids cmm', default='C:\\ProgramData\\ChimeraX\\*.cmm')
         count += 1
     if not source:
-        pprint.pprint('You forgot to choose the file')
+        print('You forgot to choose the file')
         return source
-    pprint.pprint('Centroids file is: ' + source)
+    print('Centroids file is: ' + source)
     return source
+
+
+def generate_names(xml_file):
+    """From the xml file, generate the tracked and distance file names."""
+    file_path, stub = path.split(xml_file)
+    stub = path.splitext(stub)[0]
+    save_file = path.join(file_path, (stub + "_tracked.cmm"))
+    dist_file = path.join(file_path, (stub + "_distances.csv"))
+    print('Tracked centroids saved as: ' + save_file)
+    print('Distances saved as: ' + dist_file)
+    return save_file, dist_file
 
 
 def xml_2_pd(xml_file):
     """Convert input xml into pandas dataframe"""
-    xtree = et.parse(xml_file)
+    xtree = parse(xml_file)
     xroot = xtree.getroot()
     all_marks = []
     for child in xroot:
@@ -55,9 +65,9 @@ def remove_close(frame, closest=10):
     # Take only the coordinates
     frame = frame[1]
     points_array = frame.values[:, 1:]
-    dist = distance.pdist(points_array[:, :-1])
+    dist = pdist(points_array[:, :-1])
     too_close = np.where(dist < closest)[0]
-    combos = list(itertools.combinations(range(frame.shape[0]), 2))
+    combos = list(combinations(range(frame.shape[0]), 2))
     for val in too_close:
         points_array[combos[val][1], 0] = np.nan
     return pd.DataFrame(points_array, columns=frame.columns[1:])
@@ -131,7 +141,9 @@ def measure_distance(tracks):
                         for tii in range(0, len(positions)-1)])
         track_dist[xii-1] = dist.mean()
         track_std[xii-1] = dist.std()
-    return track_dist, track_std
+    distances = pd.DataFrame([all_tracks, track_dist, track_std]).T
+    distances.columns = ['track', 'mean', 'std']
+    return distances
 
 
 def pd_2_xml(tracks, save_file='tracked.cmm'):
@@ -172,20 +184,18 @@ def main(xml_file, search_range):
         if not xml_file:
             return
 
-    file_path, stub = os.path.split(xml_file)
-    stub = "tracked_"+stub
-    save_file = os.path.join(file_path, stub)
-    pprint.pprint('Tracked centroids saved as: ' + save_file)
+    save_file, dist_file = generate_names(xml_file)
     data_frame = xml_2_pd(xml_file)
     data_frame = remove_close_time(data_frame)
     tracks = track_centroids(data_frame, search_range)
     tracks = fill_gaps(tracks)
+    measure_distance(tracks).to_csv(dist_file)
     pd_2_xml(tracks, save_file)
 
 
 if __name__ == '__main__':
     # This is executed when run from the command line.
-    parser = argparse.ArgumentParser()
+    parser = ArgumentParser()
     # Optional argument flag for the source directory
     parser.add_argument(
         "-s",
