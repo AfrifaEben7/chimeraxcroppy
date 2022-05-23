@@ -18,13 +18,13 @@ _____________________________
 """
 
 __author__ = "Brandon Scott"
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __license__ = "MIT"
 
 import os
 import argparse
 from itertools import cycle
-import easygui
+from easygui import diropenbox
 import numpy as np
 import tifffile as tf
 import matplotlib.pyplot as plt
@@ -164,7 +164,7 @@ def crop_yz(img: np.ndarray, cropping_info: np.ndarray, is_mip=False) -> np.ndar
 def determine_filenames(source=None, channel="488") -> list:
     """Find which files need used"""
     if not source:
-        source = easygui.diropenbox(msg='Choose the directory with images')
+        source = diropenbox(msg='Choose the directory with images')
         if not source:
             print('Directory not chosen, exiting.')
             return None
@@ -229,7 +229,7 @@ def show_images(data: np.ndarray, axis=0) -> None:
     plt.show()
 
 
-def main(source=None, channel="488", crop_switch=False) -> None:
+def main(source=None, channel="488", crop_switch=False, copy_switch=False) -> None:
     """1) Given a path from the microscope S:\\ transfer to the X:\\ drive
    2) Perform the deskew, deconvolution (or not) and rotation
    3) Crop down to the coverslip area
@@ -238,25 +238,26 @@ def main(source=None, channel="488", crop_switch=False) -> None:
    If crop_switch is True then the deconvolution will not be run.
    """
     if not source:
-        source = easygui.diropenbox()
+        source = diropenbox()
         if not source:
             print('Directory not chosen, exiting.')
             return
         source = source + "\\"
         os.chdir(source)
 
-    print('Input Directory is', source)
-    if not crop_switch:
+    print('Input Directory is: ', source)
+
+    if copy_switch:
         destination = "X:\\DeconSandbox\\"
         hidden_dir = "X:\\.empty\\"
         if not os.path.exists(hidden_dir):
             os.makedirs(hidden_dir)
-
         # Copy files using 64 threads, and no logging information displayed.
         robocopy(source, destination, '*.*')
+    else:
+        destination = source
 
-        # Once the data is transferred to the SSD we can open the images
-        # and begin processing on the GPU
+    if not crop_switch:  # This will do the deskew, decon, and rotate
         lls_data = llspy.LLSdir(destination)
         options = {"correctFlash": False,
                    "nIters": 10,
@@ -267,21 +268,19 @@ def main(source=None, channel="488", crop_switch=False) -> None:
                    "rotate": lls_data.parameters.angle}
         # Perform the deskewing, decon, and rotation.
         lls_data.autoprocess(**options)
-    else:
-        destination = source
 
     # Perform autocropping
     inputs = determine_filenames(
-        source=destination+"GPUdecon\\",
+        source=os.path.join(destination, "GPUdecon\\"),
         channel=channel)
-    mip_path = destination+"GPUdecon\\MIPs\\"
+    mip_path = os.path.join(destination, "GPUdecon\\MIPs\\")
     if os.path.exists(mip_path):
         mip_file = os.listdir(mip_path)[0]
         read_crop_write_mip(mip_path + mip_file, inputs[0][-1])
 
     Pool().map(read_crop_write, inputs)
 
-    if not crop_switch:
+    if copy_switch:
         # Move files using 64 threads, and no logging information displayed.
         os.chdir("X:\\")
         robocopy(destination, source, '*.txt', '/MOVE')
@@ -322,6 +321,15 @@ if __name__ == '__main__':
         help="Use this flag if you only want to crop.",
         default=False)
 
+    # Optional argument flag for local processing
+    parser.add_argument(
+        "--c",
+        "--copy",
+        action="store_true",
+        dest="copy_switch",
+        help="Use this flag if you want to copy to the X:/ before processing.",
+        default=True)
+
     # Specify output of "--version"
     parser.add_argument(
         "-v",
@@ -333,5 +341,6 @@ if __name__ == '__main__':
     main(
         source=args.source,
         channel=args.channel,
-        crop_switch=args.crop_switch
+        crop_switch=args.crop_switch,
+        copy_switch=args.copy_switch
     )
