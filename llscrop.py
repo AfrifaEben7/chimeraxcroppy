@@ -229,7 +229,7 @@ def show_images(data: np.ndarray, axis=0) -> None:
     plt.show()
 
 
-def main(source=None, channel="488", crop_switch=False, copy_switch=False) -> None:
+def main(source=None, channel="488", crop_switch=False, copy_switch=True) -> None:
     """1) Given a path from the microscope S:\\ transfer to the X:\\ drive
    2) Perform the deskew, deconvolution (or not) and rotation
    3) Crop down to the coverslip area
