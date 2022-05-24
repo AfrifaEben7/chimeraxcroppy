@@ -5,7 +5,7 @@ Steps:
 2) Perform the deskew, deconvolution (or not) and rotation
 3) Crop down to the coverslip area
 4) Ensure that MIP maintains the proper metadata i.e., Time, Pixel size, etc.
-5) Transfer the raw data dn cropped data to the Z:\\ drive
+5) Transfer the raw data and cropped data to the Z:\\ drive
 _____________________________
 |                           |
 |  ______________________   |
