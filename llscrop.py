@@ -18,7 +18,7 @@ _____________________________
 """
 
 __author__ = "Brandon Scott"
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 __license__ = "MIT"
 
 import os
@@ -242,24 +242,28 @@ def main(source=None, channel="488", crop_switch=False, copy_switch=False) -> No
         if not source:
             print('Directory not chosen, exiting.')
             return
-
-        if crop_switch:
-            if not source.endswith("GPUdecon"):
-                addme = "\\GPUdecon\\"
-        else:
-            addme = "\\"
-        source = source + addme
+        source = source + "\\"
     os.chdir(source)
 
     print('Input Directory is: ', source)
 
     if copy_switch:
         destination = "X:\\DeconSandbox\\"
+        if crop_switch:
+            if not source.endswith("GPUdecon"):
+                copy_source = source+"GPUdecon\\"
+            else:
+                copy_source = source
+            copy_destination = "X:\\DeconSandbox\\GPUdecon\\"
+        else:
+            copy_source = source
+            copy_destination = destination
+
         hidden_dir = "X:\\.empty\\"
         if not os.path.exists(hidden_dir):
             os.makedirs(hidden_dir)
         # Copy files using 64 threads, and no logging information displayed.
-        robocopy(source, destination, '*.*')
+        robocopy(copy_source, copy_destination, '*.*')
     else:
         destination = source
 
@@ -296,7 +300,6 @@ def main(source=None, channel="488", crop_switch=False, copy_switch=False) -> No
         robocopy(hidden_dir, destination, '*.*', '/MIR')
         if os.path.exists(hidden_dir):
             os.removedirs(hidden_dir)
-            os.removedirs(destination+"\\GPUdecon")
 
 
 if __name__ == '__main__':
