@@ -229,7 +229,7 @@ def show_images(data: np.ndarray, axis=0) -> None:
     plt.show()
 
 
-def main(source=None, channel="488", crop_switch=False, copy_switch=True) -> None:
+def main(source=None, channel="488", crop_switch=False, copy_switch=False) -> None:
     """1) Given a path from the microscope S:\\ transfer to the X:\\ drive
    2) Perform the deskew, deconvolution (or not) and rotation
    3) Crop down to the coverslip area
@@ -242,7 +242,12 @@ def main(source=None, channel="488", crop_switch=False, copy_switch=True) -> Non
         if not source:
             print('Directory not chosen, exiting.')
             return
-        source = source + "\\"
+        if crop_switch:
+            if not source.endswith("GPUdecon"):
+                addme = "GPUdecon\\"
+            else:
+                addme = "\\"
+            source = os.path.join(source, addme)
         os.chdir(source)
 
     print('Input Directory is: ', source)
@@ -323,12 +328,12 @@ if __name__ == '__main__':
 
     # Optional argument flag for local processing
     parser.add_argument(
-        "--c",
+        "-m",
         "--copy",
         action="store_true",
         dest="copy_switch",
         help="Use this flag if you want to copy to the X:/ before processing.",
-        default=True)
+        default=False)
 
     # Specify output of "--version"
     parser.add_argument(
