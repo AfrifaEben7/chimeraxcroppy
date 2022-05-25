@@ -1,11 +1,11 @@
 """
 Doing some tests to simplify our workflow to do everything automatically.
 Steps:
-1) Given a path from the microscope S:\\ transfer to the X:\\ drive
+1) Given a path from the Z:\\ transfer to the X:\\ drive
 2) Perform the deskew, deconvolution (or not) and rotation
 3) Crop down to the coverslip area
 4) Ensure that MIP maintains the proper metadata i.e., Time, Pixel size, etc.
-5) Transfer the raw data and cropped data to the Z:\\ drive
+5) Transfer the cropped data back to the Z:\\ drive
 _____________________________
 |                           |
 |  ______________________   |
@@ -18,7 +18,7 @@ _____________________________
 """
 
 __author__ = "Brandon Scott"
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __license__ = "MIT"
 
 import os
@@ -242,13 +242,14 @@ def main(source=None, channel="488", crop_switch=False, copy_switch=False) -> No
         if not source:
             print('Directory not chosen, exiting.')
             return
+
         if crop_switch:
             if not source.endswith("GPUdecon"):
-                addme = "GPUdecon\\"
-            else:
-                addme = "\\"
-            source = os.path.join(source, addme)
-        os.chdir(source)
+                addme = "\\GPUdecon\\"
+        else:
+            addme = "\\"
+        source = source + addme
+    os.chdir(source)
 
     print('Input Directory is: ', source)
 
@@ -276,9 +277,8 @@ def main(source=None, channel="488", crop_switch=False, copy_switch=False) -> No
 
     # Perform autocropping
     inputs = determine_filenames(
-        source=os.path.join(destination, "GPUdecon\\"),
-        channel=channel)
-    mip_path = os.path.join(destination, "GPUdecon\\MIPs\\")
+        source=destination+"GPUdecon\\", channel=channel)
+    mip_path = destination+"GPUdecon\\MIPs\\"
     if os.path.exists(mip_path):
         mip_file = os.listdir(mip_path)[0]
         read_crop_write_mip(mip_path + mip_file, inputs[0][-1])
@@ -296,6 +296,7 @@ def main(source=None, channel="488", crop_switch=False, copy_switch=False) -> No
         robocopy(hidden_dir, destination, '*.*', '/MIR')
         if os.path.exists(hidden_dir):
             os.removedirs(hidden_dir)
+            os.removedirs(destination+"\\GPUdecon")
 
 
 if __name__ == '__main__':
