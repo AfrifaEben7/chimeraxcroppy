@@ -1,4 +1,6 @@
 """
+Chimeraxcroppy base module.
+
 Doing some tests to simplify our workflow to do everything automatically.
 Steps:
 1) Given a path from the Z:\\ transfer to the X:\\ drive
@@ -16,23 +18,20 @@ _____________________________
 |___________________________|
 
 """
-
-__author__ = "Brandon Scott"
-__version__ = "0.4.0"
-__license__ = "MIT"
-
 import os
-import argparse
 from itertools import cycle
-from easygui import diropenbox
+
+import matplotlib.pyplot as plt
 import numpy as np
 import tifffile as tf
-import matplotlib.pyplot as plt
-from multiprocess.pool import Pool
 from scipy.ndimage import generate_binary_structure, iterate_structure
 from scipy.ndimage.filters import gaussian_filter
 from scipy.ndimage.morphology import binary_erosion
-import llspy
+
+NAME = "lls_crop"
+__author__ = "Brandon Scott"
+__version__ = "0.4.0"
+__license__ = "MIT"
 
 
 def robocopy(source: str, destination: str, file='*.*', move='', recur='') -> None:
@@ -118,7 +117,7 @@ def diamond(nsize=4) -> np.ndarray:
     return struct
 
 
-def coverslipbounds(img, sigma=2, pad=10) -> np.ndarray:
+def coverslipbounds(img: np.ndarray, sigma=2, pad=10) -> np.ndarray:
     """Returns the min and max for z and y on coverslip.
         Uses coverlsip and the parallelogram to crop.
     """
@@ -161,15 +160,8 @@ def crop_yz(img: np.ndarray, cropping_info: np.ndarray, is_mip=False) -> np.ndar
     return img
 
 
-def determine_filenames(source=None, channel="488") -> list:
+def determine_filenames(source: str, channel="488") -> list:
     """Find which files need used"""
-    if not source:
-        source = diropenbox(msg='Choose the directory with images')
-        if not source:
-            print('Directory not chosen, exiting.')
-            return None
-        source = source + '\\'
-    print('Input Directory is', source)
     os.chdir(source)
     filenames = list(filter(lambda a: ".tif" in a, os.listdir(source)))
     crop_file = list(filter(lambda a: channel + "nm" in a, filenames))[0]
@@ -227,129 +219,3 @@ def show_images(data: np.ndarray, axis=0) -> None:
     else:
         plt.imshow(data)
     plt.show()
-
-
-def main(source=None, channel="488", crop_switch=False, copy_switch=False) -> None:
-    """1) Given a path from the microscope S:\\ transfer to the X:\\ drive
-   2) Perform the deskew, deconvolution (or not) and rotation
-   3) Crop down to the coverslip area
-   4) Ensure that MIP maintains the proper metadata: Time, Pixel size, etc.
-   5) Transfer the raw data and cropped data to the Z:\\ drive
-   If crop_switch is True then the deconvolution will not be run.
-   """
-    if not source:
-        source = diropenbox()
-        if not source:
-            print('Directory not chosen, exiting.')
-            return
-        source = source + "\\"
-    os.chdir(source)
-
-    print('Input Directory is: ', source)
-
-    if copy_switch:
-        destination = "X:\\DeconSandbox\\"
-        if crop_switch:
-            if not source.endswith("GPUdecon"):
-                copy_source = source+"GPUdecon\\"
-            else:
-                copy_source = source
-            copy_destination = "X:\\DeconSandbox\\GPUdecon\\"
-        else:
-            copy_source = source
-            copy_destination = destination
-
-        hidden_dir = "X:\\.empty\\"
-        if not os.path.exists(hidden_dir):
-            os.makedirs(hidden_dir)
-        # Copy files using 64 threads, and no logging information displayed.
-        robocopy(copy_source, copy_destination, '*.*')
-    else:
-        destination = source
-
-    if not crop_switch:  # This will do the deskew, decon, and rotate
-        lls_data = llspy.LLSdir(destination)
-        options = {"correctFlash": False,
-                   "nIters": 10,
-                   "otfDir": 'Z:/data/LLSM_Alignment/OTF/',
-                   "background": 95,
-                   "bRotate": True,
-                   "rMIP": (True, True, True),
-                   "rotate": lls_data.parameters.angle}
-        # Perform the deskewing, decon, and rotation.
-        lls_data.autoprocess(**options)
-
-    # Perform autocropping
-    inputs = determine_filenames(
-        source=destination+"GPUdecon\\", channel=channel)
-    mip_path = destination+"GPUdecon\\MIPs\\"
-    if os.path.exists(mip_path):
-        mip_file = os.listdir(mip_path)[0]
-        read_crop_write_mip(mip_path + mip_file, inputs[0][-1])
-
-    Pool().map(read_crop_write, inputs)
-
-    if copy_switch:
-        # Move files using 64 threads, and no logging information displayed.
-        os.chdir("X:\\")
-        robocopy(destination, source, '*.txt', '/MOVE')
-        robocopy(destination+"GPUdecon\\", source +
-                 "GPUdecon\\", '*.*', '/MOVE', '/E')
-
-        # Remove the raw data that was copied to destination.
-        robocopy(hidden_dir, destination, '*.*', '/MIR')
-        if os.path.exists(hidden_dir):
-            os.removedirs(hidden_dir)
-
-
-if __name__ == '__main__':
-    # This is executed when run from the command line.
-    parser = argparse.ArgumentParser()
-    # Optional argument flag for the source directory
-    parser.add_argument(
-        "-s",
-        "--source",
-        action="store",
-        help="The directory path containing data",
-        default=None)
-
-    # Optional argument flag for channel selection
-    parser.add_argument(
-        "-c",
-        "--channel",
-        action="store",
-        help="Channel for autocropping",
-        default="488")
-
-    # Optional argument flag for cropping only
-    parser.add_argument(
-        "-x",
-        "--crop",
-        action="store_true",
-        dest="crop_switch",
-        help="Use this flag if you only want to crop.",
-        default=False)
-
-    # Optional argument flag for local processing
-    parser.add_argument(
-        "-m",
-        "--copy",
-        action="store_true",
-        dest="copy_switch",
-        help="Use this flag if you want to copy to the X:/ before processing.",
-        default=False)
-
-    # Specify output of "--version"
-    parser.add_argument(
-        "-v",
-        "--version",
-        action="version",
-        version="%(prog)s (version {version})".format(version=__version__))
-    args = parser.parse_args()
-
-    main(
-        source=args.source,
-        channel=args.channel,
-        crop_switch=args.crop_switch,
-        copy_switch=args.copy_switch
-    )
