@@ -1,5 +1,5 @@
 # Byte-compiled / optimized / DLL files
-*/__pycache__/
+lls_crop/__pycache__/
 *.pyc
 
 # Distribution / packaging
