@@ -1,3 +1,0 @@
-centroids
-general
-lls_crop

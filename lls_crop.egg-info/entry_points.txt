@@ -1,3 +1,0 @@
-[console_scripts]
-lls_crop = lls_crop.cli:main
-
