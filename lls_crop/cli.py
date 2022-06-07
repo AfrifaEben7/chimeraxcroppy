@@ -9,15 +9,16 @@ Options:
   -x --crop  Flag if you want to crop [default: False].
   -m --copy  Flag if you want to copy to NVME [default: False].
   """
-from docopt import docopt
-
 __author__ = "Brandon Scott"
-__version__ = "0.5.0"
+__version__ = "0.6.0"
+__license__ = "MIT"
 
-import os
+from os import chdir, listdir, makedirs, removedirs
+from os.path import exists
 
-import llspy
+from docopt import docopt
 from easygui import diropenbox
+from llspy import LLSdir
 from multiprocess.pool import Pool
 
 from lls_crop.base import (determine_filenames, read_crop_write,
@@ -35,7 +36,7 @@ def parse_args():
 
 
 def main() -> None:
-    """1) Given a path from the microscope S:\\ transfer to the X:\\ drive
+    """1) Given a path from the Z:\\ transfer to the X:\\ drive
        2) Perform the deskew, deconvolution (or not) and rotation
        3) Crop down to the coverslip area
        4) Ensure that MIP maintains the proper metadata: Time, Pixel size, etc.
@@ -49,7 +50,7 @@ def main() -> None:
             print('Directory not chosen, exiting.')
             return
         source = source + "\\"
-    os.chdir(source)
+    chdir(source)
 
     print('Input Directory is: ', source)
 
@@ -66,15 +67,15 @@ def main() -> None:
             copy_destination = destination
 
         hidden_dir = "X:\\.empty\\"
-        if not os.path.exists(hidden_dir):
-            os.makedirs(hidden_dir)
+        if not exists(hidden_dir):
+            makedirs(hidden_dir)
         # Copy files using 64 threads, and no logging information displayed.
         robocopy(copy_source, copy_destination, '*.*')
     else:
         destination = source
 
     if not crop_switch:  # This will do the deskew, decon, and rotate
-        lls_data = llspy.LLSdir(destination)
+        lls_data = LLSdir(destination)
         options = {"correctFlash": False,
                    "nIters": 10,
                    "otfDir": 'Z:/data/LLSM_Alignment/OTF/',
@@ -88,25 +89,22 @@ def main() -> None:
     # Perform autocropping
     inputs = determine_filenames(
         source=destination+"GPUdecon\\", channel=channel)
+
     mip_path = destination+"GPUdecon\\MIPs\\"
-    if os.path.exists(mip_path):
-        mip_file = os.listdir(mip_path)[0]
+    if exists(mip_path):
+        mip_file = listdir(mip_path)[0]
         read_crop_write_mip(mip_path + mip_file, inputs[0][-1])
 
     Pool().map(read_crop_write, inputs)
 
     if copy_switch:
         # Move files using 64 threads, and no logging information displayed.
-        os.chdir("X:\\")
+        chdir("X:\\")
         robocopy(destination, source, '*.txt', '/MOVE')
         robocopy(destination+"GPUdecon\\", source +
                  "GPUdecon\\", '*.*', '/MOVE', '/E')
 
         # Remove the raw data that was copied to destination.
         robocopy(hidden_dir, destination, '*.*', '/MIR')
-        if os.path.exists(hidden_dir):
-            os.removedirs(hidden_dir)
-
-
-if __name__ == '__main__':
-    main()
+        if exists(hidden_dir):
+            removedirs(hidden_dir)
