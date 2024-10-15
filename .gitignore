@@ -4,3 +4,5 @@ lls_crop/__pycache__/
 
 # Distribution / packaging
 *.egg-info/
+
+*.log

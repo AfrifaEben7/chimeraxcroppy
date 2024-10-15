@@ -1,8 +1,9 @@
 import subprocess
 import time
 import os
+import re
 import logging
-
+DEBUG = False
 # Configure logging
 logging.basicConfig(
     filename="watchdog.log",
@@ -10,8 +11,10 @@ logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(message)s",
 )
 
-source_drive = "Z:\\"  # Drive Z
-destination_drive = "X:\\"  # Drive X
+
+source_drive = "Z:\\data\\Macropinocytosis\\2024\\"  # Drive Z
+
+destination_drive = "X:\\DeconSandbox"  # Drive X
 
 # Directory names(just place holders)
 watch_directory_name = "Ready_for_processing"  # Directory to monitor
@@ -52,7 +55,7 @@ def call_lls_crop(source):
     """
     Calls the lls_crop command with the specified source directory.
     """
-    command = ['lls_crop', '-s', source]
+    command = ['lls_crop', '-s', source, '-m', '-c 488']
     result = subprocess.run(command, capture_output=True, text=True)
     
     if result.returncode == 0:
@@ -66,27 +69,32 @@ def check_for_txt_files(directory):
     """
     Checks if there are any .txt files in the specified directory.
     """
-    for file in os.listdir(directory):
+    for file in os.walk(directory):
         if file.endswith(".txt"):
             return True
     return False
 
 def monitor_and_transfer_files():
     while True:
+        if DEBUG: print('started while:')
         # Check if the directory exists on drive Z
-        if os.path.exists(watch_directory) and os.listdir(watch_directory):
-            logging.info(f"Directory {watch_directory} found and contains files.")
-            # Ensure the Processing directory exists
-            if ensure_directory_exists(processing_dir):
-                # Move files to Processing directory
-                if robo_move(watch_directory, processing_dir):
-                    # Call lls_crop
-                    if call_lls_crop(processing_dir) and check_for_txt_files(processing_dir):
-                        
-                            if ensure_directory_exists(complete_dir):
-                                
-                                if robo_move(processing_dir, complete_dir):
-                                    logging.info(f"Files moved from {processing_dir} to {complete_dir}.")
+        if os.path.exists(source_drive) and os.listdir(source_drive):
+            logging.info(f"Directory {source_drive} found and contains files.")
+            #Get the list of all files and directories
+            dir_list = [dir for (dir, subdirs, filenames) in os.walk(source_drive) 
+                        if  [True for name in filenames if name.endswith('_Settings.txt')] 
+                            and 
+                            not [True for name in filenames if name.endswith('_ProcessingLog.txt')]
+                        ]
+            
+            if DEBUG: 
+                for dir in  dir_list:
+                    print ('Ready to Process: ' + dir +'\n')
+            for dir in  dir_list:
+                print ('Processing: ' + dir)
+                if call_lls_crop(dir):
+                    logging.info(f"lls crop failed on {dir}.")
+
         # waiting time
         time.sleep(5)
 
