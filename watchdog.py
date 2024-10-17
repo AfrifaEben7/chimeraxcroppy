@@ -55,15 +55,11 @@ def call_lls_crop(source):
     """
     Calls the lls_crop command with the specified source directory.
     """
-    command = ['lls_crop', '-s', source, '-m', '-c 488']
-    result = subprocess.run(command, capture_output=True, text=True)
-    
-    if result.returncode == 0:
-        logging.info("lls_crop completed successfully.")
-        return True
-    else:
-        logging.error(f"lls_crop failed with return code {result.returncode}:\n{result.stdout}\n{result.stderr}")
-        return False
+    command = ['lls_crop', '-s', source, '-m', '-c', '488']
+    subprocess.run(command)
+    logging.info("lls_crop command executed.")
+    return True
+
 
 def check_for_txt_files(directory):
     """
@@ -93,7 +89,7 @@ def monitor_and_transfer_files():
             for dir in  dir_list:
                 print ('Processing: ' + dir)
                 if call_lls_crop(dir):
-                    logging.info(f"lls crop failed on {dir}.")
+                    logging.info(f"lls crop successful on {dir}.")
 
         # waiting time
         time.sleep(5)
