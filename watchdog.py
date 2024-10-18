@@ -12,7 +12,8 @@ logging.basicConfig(
 )
 
 
-source_drive = "Z:\\data\\Macropinocytosis\\2024\\"  # Drive Z
+#source_drive = "Z:\\data\\Macropinocytosis\\2024\\"  # Drive Z
+source_drive = "Z:\\data\\Macropinocytosis\\2024"  # Drive Z
 
 destination_drive = "X:\\DeconSandbox"  # Drive X
 
@@ -55,7 +56,7 @@ def call_lls_crop(source):
     """
     Calls the lls_crop command with the specified source directory.
     """
-    command = ['lls_crop', '-s', source, '-m', '-c', '488']
+    command = ['lls_crop', '-s', source]
     subprocess.run(command)
     logging.info("lls_crop command executed.")
     return True
