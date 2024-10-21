@@ -86,10 +86,13 @@ def monitor_and_transfer_files():
             if DEBUG: 
                 for dir in  dir_list:
                     print ('Ready to Process: ' + dir +'\n')
-            for dir in  dir_list:
-                print ('Processing: ' + dir)
-                if call_lls_crop(dir):
-                    logging.info(f"lls crop successful on {dir}.")
+            for dir in dir_list:
+                if any(file.endswith(".tiff") for _, _, files in os.walk(dir) for file in files):
+                    print('Processing: ' + dir)
+                    if call_lls_crop(dir):
+                        logging.info(f"lls crop successful on {dir}.")
+                else:
+                    logging.info(f"No .tiff files found in {dir}, skipping.")
 
         # waiting time
         time.sleep(5)
