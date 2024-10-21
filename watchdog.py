@@ -87,6 +87,7 @@ def monitor_and_transfer_files():
                 for dir in  dir_list:
                     print ('Ready to Process: ' + dir +'\n')
             for dir in dir_list:
+                # check if the directory ready for processing contains .tiff files
                 if any(file.endswith(".tiff") for _, _, files in os.walk(dir) for file in files):
                     print('Processing: ' + dir)
                     if call_lls_crop(dir):
