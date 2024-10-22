@@ -74,6 +74,7 @@ def main() -> None:
     else:
         destination = source
 
+    #TODO: determine multi-GUP settings and update options --JEF
     if not crop_switch:  # This will do the deskew, decon, and rotate
         lls_data = LLSdir(destination)
         options = {"correctFlash": False,

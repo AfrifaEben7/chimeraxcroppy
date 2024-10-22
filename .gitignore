@@ -1,6 +1,7 @@
 # Byte-compiled / optimized / DLL files
 lls_crop/__pycache__/
 *.pyc
+croppy/
 
 # Distribution / packaging
 *.egg-info/
